@@ -26,6 +26,26 @@ Transcription is powered by [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co
 - ~700 MB of disk space for the speech model (downloaded on first launch)
 - Microphone permission (recording) and Accessibility permission (global hotkey + paste)
 
+## Installing a downloaded build
+
+Release builds are not currently notarized with Apple, so macOS blocks the
+first launch. This is a one-time step:
+
+1. Move `VoiceYak.app` to `/Applications` and open it. macOS says it
+   "could not verify VoiceYak is free of malware" — click **Done**
+   (not "Move to Trash").
+2. Open **System Settings → Privacy & Security**, scroll down to the
+   Security section, and click **Open Anyway** next to the VoiceYak message.
+3. Confirm and authenticate. macOS remembers the choice from then on.
+
+If you prefer the Terminal, this clears the quarantine flag in one step:
+
+```sh
+xattr -d com.apple.quarantine /Applications/VoiceYak.app
+```
+
+Building from source avoids all of this.
+
 ## Building from source
 
 ```sh
