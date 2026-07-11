@@ -28,6 +28,8 @@ Transcription is powered by [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co
 
 ## Installing a downloaded build
 
+Download the latest `VoiceYak-x.y.dmg` from [Releases](https://github.com/g-ghuman/VoiceYak/releases), open it, and drag VoiceYak to Applications.
+
 Release builds are not currently notarized with Apple, so macOS blocks the
 first launch. This is a one-time step:
 
