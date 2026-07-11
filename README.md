@@ -52,10 +52,12 @@ Building from source avoids all of this.
 git clone https://github.com/g-ghuman/VoiceYak.git
 cd VoiceYak
 ./Scripts/fetch-sherpa-onnx.sh   # downloads the prebuilt sherpa-onnx static library
-xcodebuild -project VoiceYak.xcodeproj -scheme VoiceYak -configuration Release build
+xcodebuild -project VoiceYak.xcodeproj -scheme VoiceYak -configuration Release build CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=-
 ```
 
-Or open `VoiceYak.xcodeproj` in Xcode and run. The app guides you through permissions and the model download on first launch.
+Or open `VoiceYak.xcodeproj` in Xcode, pick your own team under Signing & Capabilities (a free personal team works), and run. The project does not ship with a development team set, so Xcode asks once and remembers your choice. Building with your own team keeps the app's signature stable across rebuilds, so macOS permission grants stick; the ad-hoc command above re-signs on every build, which makes macOS ask for Microphone and Accessibility again after each rebuild.
+
+The app guides you through permissions and the model download on first launch.
 
 ## Settings
 
