@@ -13,6 +13,13 @@ VoiceYak is a free, open-source menu bar app. Hold a key, speak, release — you
 
 Transcription is powered by [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) (int8) running locally via [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx). It supports English and 24 other European languages, and transcribes short clips in well under a second on Apple Silicon.
 
+## Screenshots
+
+| ![Home dashboard with live status and dictation stats](docs/screenshots/home.png) | ![General settings: hotkey, behavior, permissions](docs/screenshots/general.png) |
+|:--:|:--:|
+| ![Voice model manager with multilingual and English models](docs/screenshots/voice-model.png) | ![Output settings: text processing, per-app formatting, clipboard](docs/screenshots/output.png) |
+| ![Custom dictionary for names, brands, and jargon](docs/screenshots/dictionary.png) | ![Advanced settings: fast long dictations and live preview](docs/screenshots/advanced.png) |
+
 ## Requirements
 
 - macOS 26.2+ on Apple Silicon
@@ -22,7 +29,7 @@ Transcription is powered by [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co
 ## Building from source
 
 ```sh
-git clone <repo-url>
+git clone https://github.com/g-ghuman/VoiceYak.git
 cd VoiceYak
 ./Scripts/fetch-sherpa-onnx.sh   # downloads the prebuilt sherpa-onnx static library
 xcodebuild -project VoiceYak.xcodeproj -scheme VoiceYak -configuration Release build
