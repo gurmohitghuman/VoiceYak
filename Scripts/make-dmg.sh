@@ -1,10 +1,10 @@
 #!/bin/bash
 # Builds a Release VoiceYak.app and packages it into a DMG.
 #
-# By default the app is signed with the project's normal signing identity
-# (Apple Development) — fine for your own Macs. For public distribution,
-# pass a Developer ID identity and notarize the result:
-#   SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./Scripts/make-dmg.sh
+# By default the app is ad-hoc signed (the project ships with no
+# development team), which carries no identity and is what public releases
+# use. To sign with a certificate instead:
+#   SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" ./Scripts/make-dmg.sh
 #
 # OUTPUT_DIR overrides where the .dmg lands (default: dist/).
 set -euo pipefail
@@ -27,7 +27,8 @@ xcodebuild -project "${REPO_ROOT}/VoiceYak.xcodeproj" \
     -scheme VoiceYak \
     -configuration Release \
     -derivedDataPath "${BUILD}" \
-    ${SIGN_IDENTITY:+CODE_SIGN_IDENTITY="${SIGN_IDENTITY}"} \
+    CODE_SIGN_STYLE=Manual \
+    CODE_SIGN_IDENTITY="${SIGN_IDENTITY:--}" \
     -quiet \
     build
 

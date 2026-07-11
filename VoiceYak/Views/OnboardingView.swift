@@ -4,6 +4,7 @@ struct OnboardingView: View {
     let appState: AppState
 
     @State private var currentStep = 0
+    @AppStorage("selectedVoiceModel") private var selectedVoiceModel = "multilingual"
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -188,17 +189,23 @@ struct OnboardingView: View {
 
     // MARK: - Step 4: Model Download
 
+    /// The model choice as picked in this view, kept in sync with the
+    /// same default the settings picker uses.
+    private var onboardingModel: VoiceModel {
+        VoiceModel(rawValue: selectedVoiceModel) ?? .multilingual
+    }
+
     private var modelStep: some View {
         VStack(spacing: 0) {
             Spacer()
 
-            StepHero(icon: "waveform.and.arrow.down")
+            StepHero(icon: "arrow.down.circle.fill")
 
             VStack(spacing: 10) {
                 Text("Voice Model")
                     .font(.system(.title, design: .rounded, weight: .bold))
 
-                Text("One download (\(VoiceModel.selected.displaySize)), then VoiceYak\nworks offline forever.")
+                Text("One download (\(onboardingModel.displaySize)), then VoiceYak\nworks offline forever.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -208,6 +215,31 @@ struct OnboardingView: View {
             .padding(.bottom, 24)
 
             let downloadState = downloader.downloadState
+
+            if !Constants.isParakeetModelDownloaded && downloadState?.isComplete != true {
+                VStack(spacing: 8) {
+                    Picker("Voice model", selection: $selectedVoiceModel) {
+                        ForEach(VoiceModel.allCases) { model in
+                            Text(model.displayName)
+                                .tag(model.rawValue)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 260)
+                    .disabled(downloader.isDownloading)
+                    .onChange(of: selectedVoiceModel) { _, _ in
+                        Task { await appState.modelSelectionChanged() }
+                    }
+
+                    Text(onboardingModel == .multilingual
+                         ? "English and 24 other European languages."
+                         : "English only, with the best English accuracy.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.bottom, 20)
+            }
 
             if Constants.isParakeetModelDownloaded || downloadState?.isComplete == true {
                 GrantedPill(label: "Model downloaded and ready")

@@ -61,7 +61,8 @@ final class ModelDownloader {
     }
 
     var isDownloading: Bool {
-        downloadState != nil && !(downloadState?.isComplete ?? true)
+        guard let downloadState else { return false }
+        return !downloadState.isComplete && downloadState.error == nil
     }
 
     func download() {
@@ -105,7 +106,7 @@ final class ModelDownloader {
     private func performDownload(model: VoiceModel, url: URL, runID: UUID) async {
         // Progress relay: URLSession calls it on its own queue; hop to the
         // main actor and drop callbacks that outlived their run.
-        let relay = DownloadProgressRelay { [weak self] progress, totalBytes, downloadedBytes in
+        let onProgress: @Sendable (Double, Int64, Int64) -> Void = { [weak self] progress, totalBytes, downloadedBytes in
             Task { @MainActor in
                 guard let self, self.downloadState?.runID == runID else { return }
                 self.downloadState?.progress = progress
@@ -121,20 +122,20 @@ final class ModelDownloader {
             }
         }
         do {
-            // Cancelling downloadRun cancels the transfer cooperatively.
-            let (tmpURL, response) = try await URLSession.shared.download(from: url, delegate: relay)
-            // Claim the transfer's temp file (a fast same-volume rename)
-            // before anything else — the system may clean it up otherwise.
-            // Parked in a dedicated scratch dir that launch sweeps, so a
-            // crash here can't strand a ~600 MB archive.
+            // The archive is parked in a dedicated scratch dir that launch
+            // sweeps, so a crash here can't strand a ~600 MB archive.
             try FileManager.default.createDirectory(
                 at: Self.downloadScratchDirectory,
                 withIntermediateDirectories: true
             )
             let parked = Self.downloadScratchDirectory
                 .appendingPathComponent(UUID().uuidString + ".tar.bz2")
-            try FileManager.default.moveItem(at: tmpURL, to: parked)
             archiveURL = parked
+
+            // Cancelling downloadRun cancels the transfer cooperatively.
+            let response = try await Self.downloadWithProgress(
+                from: url, to: parked, onProgress: onProgress
+            )
 
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
                 throw URLError(.badServerResponse)
@@ -184,6 +185,34 @@ final class ModelDownloader {
     func resetForModelSwitch() {
         guard !isDownloading else { return }
         downloadState = nil
+    }
+
+    /// Downloads via a dedicated delegate-based session. The async
+    /// `URLSession.download(from:delegate:)` convenience never delivers
+    /// `didWriteData` to its per-task delegate, so onboarding progress sat
+    /// at 0% for the whole ~600 MB transfer; a session-level delegate does
+    /// receive it. The finished file is moved to `destination` inside the
+    /// delegate callback because the system deletes the temp file as soon
+    /// as that callback returns.
+    private nonisolated static func downloadWithProgress(
+        from url: URL,
+        to destination: URL,
+        onProgress: @escaping @Sendable (Double, Int64, Int64) -> Void
+    ) async throws -> URLResponse {
+        let relay = DownloadProgressRelay(destination: destination, onProgress: onProgress)
+        let session = URLSession(configuration: .default, delegate: relay, delegateQueue: nil)
+        // The session retains its delegate until invalidated; without this
+        // every download leaks a session + relay pair.
+        defer { session.finishTasksAndInvalidate() }
+        let task = session.downloadTask(with: url)
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                relay.install(continuation)
+                task.resume()
+            }
+        } onCancel: {
+            task.cancel()
+        }
     }
 
     /// Holding pen for in-flight download archives.
@@ -377,23 +406,74 @@ private enum ModelDownloadError: LocalizedError {
 
 // MARK: - Download Progress Relay
 
-/// Per-task delegate for the async `URLSession.download(from:delegate:)`
-/// call: the async API returns the file and errors, so this only relays
-/// progress.
+/// Session-level delegate for one download: relays progress, secures the
+/// finished file, and completes the continuation. If the owning Task is
+/// cancelled before the continuation is installed, `didCompleteWithError`
+/// can race `install` — the lock pairs whichever of install/finish comes
+/// second, so the completion is never dropped (which would suspend the
+/// caller forever).
 private final class DownloadProgressRelay: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+    private let destination: URL
     private let onProgress: @Sendable (Double, Int64, Int64) -> Void
+    private let lock = NSLock()
+    private var moveError: Error?
+    private var continuation: CheckedContinuation<URLResponse, Error>?
+    private var pendingResult: Result<URLResponse, Error>?
 
-    init(_ onProgress: @escaping @Sendable (Double, Int64, Int64) -> Void) {
+    init(destination: URL, onProgress: @escaping @Sendable (Double, Int64, Int64) -> Void) {
+        self.destination = destination
         self.onProgress = onProgress
     }
 
+    func install(_ continuation: CheckedContinuation<URLResponse, Error>) {
+        lock.lock()
+        if let result = pendingResult {
+            pendingResult = nil
+            lock.unlock()
+            continuation.resume(with: result)
+        } else {
+            self.continuation = continuation
+            lock.unlock()
+        }
+    }
+
+    private func finish(_ result: Result<URLResponse, Error>) {
+        lock.lock()
+        if let continuation {
+            self.continuation = nil
+            lock.unlock()
+            continuation.resume(with: result)
+        } else {
+            pendingResult = result
+            lock.unlock()
+        }
+    }
+
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        // Required by URLSessionDownloadDelegate; the async API's return
-        // value delivers the file to the caller.
+        // Move (a fast same-volume rename) before this callback returns —
+        // the system deletes the temp file afterwards.
+        do {
+            try? FileManager.default.removeItem(at: destination)
+            try FileManager.default.moveItem(at: location, to: destination)
+        } catch {
+            moveError = error
+        }
     }
 
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         let total = totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : totalBytesWritten
         onProgress(Double(totalBytesWritten) / Double(total), total, totalBytesWritten)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let error {
+            finish(.failure(error))
+        } else if let moveError {
+            finish(.failure(moveError))
+        } else if let response = task.response {
+            finish(.success(response))
+        } else {
+            finish(.failure(URLError(.badServerResponse)))
+        }
     }
 }
