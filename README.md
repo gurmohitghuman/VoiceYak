@@ -48,12 +48,26 @@ Building from source avoids all of this.
 
 ## Building from source
 
+Building requires the full [Xcode](https://apps.apple.com/app/xcode/id497799835) app (free on the Mac App Store). The Command Line Tools alone are not enough. After installing Xcode, launch it once so it can finish setup, then point the command line tools at it:
+
+```sh
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+```
+
+If you skip this and only have the Command Line Tools, `xcodebuild` fails with "tool 'xcodebuild' requires Xcode, but active developer directory '/Library/Developer/CommandLineTools' is a command line tools instance". The command above fixes it.
+
+Then build:
+
 ```sh
 git clone https://github.com/g-ghuman/VoiceYak.git
 cd VoiceYak
 ./Scripts/fetch-sherpa-onnx.sh   # downloads the prebuilt sherpa-onnx static library
 xcodebuild -project VoiceYak.xcodeproj -scheme VoiceYak -configuration Release build CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=-
 ```
+
+The built app lands in Xcode's DerivedData folder; the last lines of the build output show the full path. Move `VoiceYak.app` from there to `/Applications`.
+
+If you don't want to install Xcode, grab a prebuilt app from [Releases](https://github.com/g-ghuman/VoiceYak/releases) instead and follow "Installing a downloaded build" above.
 
 Or open `VoiceYak.xcodeproj` in Xcode, pick your own team under Signing & Capabilities (a free personal team works), and run. The project does not ship with a development team set, so Xcode asks once and remembers your choice. Building with your own team keeps the app's signature stable across rebuilds, so macOS permission grants stick; the ad-hoc command above re-signs on every build, which makes macOS ask for Microphone and Accessibility again after each rebuild.
 
