@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+.DerivedData*/
+build/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Prebuilt binary dependency — fetch with Scripts/fetch-sherpa-onnx.sh
+sherpa-onnx.xcframework/
+dist/
