@@ -4,6 +4,21 @@
 
 VoiceYak is a free, open-source menu bar app. Hold a key, speak, release — your words are transcribed locally and pasted into whatever app you're typing in. No cloud, no account, no API costs. Audio never leaves your Mac.
 
+## Install
+
+1. **[Download VoiceYak 1.0.1 (DMG)](https://github.com/g-ghuman/VoiceYak/releases/latest/download/VoiceYak-1.0.1.dmg)**, open it, and drag VoiceYak into Applications.
+2. Open VoiceYak. macOS blocks the first launch because the app is not notarized with Apple and says it "could not verify VoiceYak is free of malware". Click **Done** (not "Move to Trash").
+3. Open **System Settings → Privacy & Security**, scroll down to the Security section, and click **Open Anyway** next to the VoiceYak message, then confirm. This is a one-time step; macOS remembers the choice.
+4. VoiceYak guides you through Microphone and Accessibility permissions and downloads the voice model on first launch.
+
+If you prefer the Terminal, this clears the quarantine flag in place of steps 2 and 3:
+
+```sh
+xattr -d com.apple.quarantine /Applications/VoiceYak.app
+```
+
+All versions are on the [Releases](https://github.com/g-ghuman/VoiceYak/releases) page. You can also [build from source](#building-from-source), which avoids the unnotarized-app step entirely.
+
 ## How it works
 
 1. VoiceYak lives in your menu bar (no Dock icon)
@@ -26,28 +41,6 @@ Transcription is powered by [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co
 - ~700 MB of disk space for the speech model (downloaded on first launch)
 - Microphone permission (recording) and Accessibility permission (global hotkey + paste)
 
-## Installing a downloaded build
-
-Download the latest `VoiceYak-x.y.dmg` from [Releases](https://github.com/g-ghuman/VoiceYak/releases), open it, and drag VoiceYak to Applications.
-
-Release builds are not currently notarized with Apple, so macOS blocks the
-first launch. This is a one-time step:
-
-1. Move `VoiceYak.app` to `/Applications` and open it. macOS says it
-   "could not verify VoiceYak is free of malware" — click **Done**
-   (not "Move to Trash").
-2. Open **System Settings → Privacy & Security**, scroll down to the
-   Security section, and click **Open Anyway** next to the VoiceYak message.
-3. Confirm and authenticate. macOS remembers the choice from then on.
-
-If you prefer the Terminal, this clears the quarantine flag in one step:
-
-```sh
-xattr -d com.apple.quarantine /Applications/VoiceYak.app
-```
-
-Building from source avoids all of this.
-
 ## Building from source
 
 Building requires the full [Xcode](https://apps.apple.com/app/xcode/id497799835) app (free on the Mac App Store). The Command Line Tools alone are not enough. After installing Xcode, launch it once so it can finish setup, then point the command line tools at it:
@@ -69,7 +62,7 @@ xcodebuild -project VoiceYak.xcodeproj -scheme VoiceYak -configuration Release b
 
 The built app lands in Xcode's DerivedData folder; the last lines of the build output show the full path. Move `VoiceYak.app` from there to `/Applications`.
 
-If you don't want to install Xcode, grab a prebuilt app from [Releases](https://github.com/g-ghuman/VoiceYak/releases) instead and follow "Installing a downloaded build" above.
+If you don't want to install Xcode, follow the [Install](#install) steps at the top instead.
 
 Or open `VoiceYak.xcodeproj` in Xcode, pick your own team under Signing & Capabilities (a free personal team works), and run. The project does not ship with a development team set, so Xcode asks once and remembers your choice. Building with your own team keeps the app's signature stable across rebuilds, so macOS permission grants stick; the ad-hoc command above re-signs on every build, which makes macOS ask for Microphone and Accessibility again after each rebuild.
 
