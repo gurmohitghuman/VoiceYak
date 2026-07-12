@@ -5,6 +5,12 @@ struct VoiceYakApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     private let appState = AppState.shared
 
+    init() {
+        // Canary child: when launched with --verify-model this loads the
+        // model and exits before any UI exists. See ModelVerifier.
+        ModelVerifier.handleVerifyModelArgumentIfPresent()
+    }
+
     var body: some Scene {
         MenuBarExtra {
             MenuBarView(appState: appState)

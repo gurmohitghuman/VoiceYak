@@ -10,9 +10,25 @@ import Foundation  // For NSString
 ///   - s: The String to convert.
 /// - Returns: A pointer that can be passed to C as `const char*`
 
+/// Lifetime invariant: the returned pointer is an autoreleased buffer that
+/// stays valid only until the current autorelease pool drains. Every config
+/// built with it MUST be consumed by its Sherpa `Create*` call in the same
+/// scope (the C++ side copies strings during create). Never store one of
+/// these configs for a deferred create.
 nonisolated func toCPointer(_ s: String) -> UnsafePointer<Int8>! {
   let cs = (s as NSString).utf8String
   return UnsafePointer<Int8>(cs)
+}
+
+/// Failures from the C API on paths VoiceYak exercises at runtime. A corrupt
+/// model or failed native init must surface as a catchable error, not a
+/// fatalError crash: model loads are wrapped in do/catch that shows
+/// "Failed to load model", and decode failures feed the transcription
+/// error paths.
+nonisolated enum SherpaOnnxError: Error {
+  case createRecognizerFailed
+  case createStreamFailed
+  case getResultFailed
 }
 
 /// Return an instance of SherpaOnnxOnlineTransducerModelConfig.
@@ -768,9 +784,9 @@ nonisolated class SherpaOnnxOfflineRecognizer {
 
   init(
     config: UnsafePointer<SherpaOnnxOfflineRecognizerConfig>
-  ) {
+  ) throws {
     guard let ptr = SherpaOnnxCreateOfflineRecognizer(config) else {
-      fatalError("Failed to create SherpaOnnxOfflineRecognizer")
+      throw SherpaOnnxError.createRecognizerFailed
     }
     self.recognizer = ptr
   }
@@ -779,38 +795,40 @@ nonisolated class SherpaOnnxOfflineRecognizer {
     SherpaOnnxDestroyOfflineRecognizer(recognizer)
   }
 
-  /// Decode wave samples.
+  /// Decode wave samples. Throws when the native side fails to allocate a
+  /// stream or produce a result — an operational failure, distinct from a
+  /// legitimately empty transcription.
   ///
   /// - Parameters:
   ///   - samples: Audio samples normalized to the range [-1, 1]
   ///   - sampleRate: Sample rate of the input audio samples. Must match
   ///                 the one expected by the model.
-  func decode(samples: [Float], sampleRate: Int = 16_000) -> SherpaOnnxOfflineRecongitionResult {
-    let stream = createStream()
+  func decode(samples: [Float], sampleRate: Int = 16_000) throws -> SherpaOnnxOfflineRecongitionResult {
+    let stream = try createStream()
     stream.acceptWaveform(samples: samples, sampleRate: sampleRate)
     decode(stream: stream)
-    return getResult(stream: stream)
+    return try getResult(stream: stream)
   }
 
   func setConfig(config: UnsafePointer<SherpaOnnxOfflineRecognizerConfig>) {
     SherpaOnnxOfflineRecognizerSetConfig(recognizer, config)
   }
 
-  func createStream() -> SherpaOnnxOfflineStreamWrapper {
+  private func createStream() throws -> SherpaOnnxOfflineStreamWrapper {
     guard let stream = SherpaOnnxCreateOfflineStream(recognizer) else {
-      fatalError("Failed to create offline stream")
+      throw SherpaOnnxError.createStreamFailed
     }
 
     return SherpaOnnxOfflineStreamWrapper(stream: stream)
   }
 
-  func decode(stream: SherpaOnnxOfflineStreamWrapper) {
+  private func decode(stream: SherpaOnnxOfflineStreamWrapper) {
     SherpaOnnxDecodeOfflineStream(recognizer, stream.stream)
   }
 
-  func getResult(stream: SherpaOnnxOfflineStreamWrapper) -> SherpaOnnxOfflineRecongitionResult {
+  private func getResult(stream: SherpaOnnxOfflineStreamWrapper) throws -> SherpaOnnxOfflineRecongitionResult {
     guard let resultPtr = SherpaOnnxGetOfflineStreamResult(stream.stream) else {
-      fatalError("Failed to get offline recognition result")
+      throw SherpaOnnxError.getResultFailed
     }
 
     return SherpaOnnxOfflineRecongitionResult(result: resultPtr)
@@ -964,9 +982,11 @@ nonisolated class SherpaOnnxVoiceActivityDetectorWrapper {
   /// A pointer to the underlying counterpart in C
   private let vad: OpaquePointer
 
-  init(config: UnsafePointer<SherpaOnnxVadModelConfig>, buffer_size_in_seconds: Float) {
+  /// Failable: native init failure (bad model file, allocation) degrades to
+  /// the caller's non-VAD fallback instead of crashing.
+  init?(config: UnsafePointer<SherpaOnnxVadModelConfig>, buffer_size_in_seconds: Float) {
     guard let vad = SherpaOnnxCreateVoiceActivityDetector(config, buffer_size_in_seconds) else {
-      fatalError("SherpaOnnxCreateVoiceActivityDetector returned nil")
+      return nil
     }
     self.vad = vad
   }
@@ -995,9 +1015,11 @@ nonisolated class SherpaOnnxVoiceActivityDetectorWrapper {
     SherpaOnnxVoiceActivityDetectorClear(vad)
   }
 
-  func front() -> SherpaOnnxSpeechSegmentWrapper {
+  /// nil when the native side has no valid front segment despite isEmpty()
+  /// saying otherwise — callers must stop draining, not crash.
+  func front() -> SherpaOnnxSpeechSegmentWrapper? {
     guard let p = SherpaOnnxVoiceActivityDetectorFront(vad) else {
-      fatalError("SherpaOnnxVoiceActivityDetectorFront returned nil")
+      return nil
     }
     return SherpaOnnxSpeechSegmentWrapper(p: p)
   }
