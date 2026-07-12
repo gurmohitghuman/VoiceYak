@@ -18,10 +18,18 @@ dist/
 
 # Profiling / tooling
 *.profraw
-.claude/settings.local.json
+
+# Local agent tooling never ships publicly
+.claude/
+Scripts/codex-ask.sh
+Scripts/codex-exec.sh
 
 # Per-machine signing overrides (referenced by Base.xcconfig)
 Local.xcconfig
 
 # Local agent instructions (workflow and identity preferences stay off the public repo)
 CLAUDE.md
+
+# Internal working documents (audits, plans, bug reports) never ship publicly;
+# screenshots stay tracked
+docs/*.md
