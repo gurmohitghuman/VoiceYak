@@ -76,7 +76,7 @@ The built app lands in Xcode's DerivedData folder; the last lines of the build o
 
 If you don't want to install Xcode, follow the [Install](#install) steps at the top instead.
 
-Or open `VoiceYak.xcodeproj` in Xcode, pick your own team under Signing & Capabilities (a free personal team works), and run. The project does not ship with a development team set, so Xcode asks once and remembers your choice. Building with your own team keeps the app's signature stable across rebuilds, so macOS permission grants stick; the ad-hoc command above re-signs on every build, which makes macOS ask for Microphone and Accessibility again after each rebuild.
+Or open `VoiceYak.xcodeproj` in Xcode and run. The project ships without a development team; to sign with your own (a free personal team works), create a `Local.xcconfig` file next to `Base.xcconfig` containing `DEVELOPMENT_TEAM = YOURTEAMID`. It is gitignored, keeps the team out of the project file, and applies to both Xcode and command-line builds. Building with your own team keeps the app's signature stable across rebuilds, so macOS permission grants stick; the ad-hoc command above re-signs on every build, which makes macOS ask for Microphone and Accessibility again after each rebuild.
 
 The app guides you through permissions and the model download on first launch.
 

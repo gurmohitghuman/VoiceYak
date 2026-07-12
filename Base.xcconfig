@@ -1,0 +1,7 @@
+// Optional per-machine overrides. Local.xcconfig is gitignored; create it
+// beside this file to set your own signing team so macOS permission grants
+// survive rebuilds:
+//   DEVELOPMENT_TEAM = YOURTEAMID
+// Without it, builds are teamless and the README's ad-hoc signing command
+// applies.
+#include? "Local.xcconfig"

@@ -42,6 +42,7 @@
 
 /* Begin PBXFileReference section */
 		AA000011BBBB001100000011 /* sherpa-onnx.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = "sherpa-onnx.xcframework"; sourceTree = "<group>"; };
+		AA000030BBBB003000000030 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 		AAEE9D5C2F7D1AD800EA5277 /* VoiceYak.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VoiceYak.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAEE9D692F7D1AD900EA5277 /* VoiceYakTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VoiceYakTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAEE9D732F7D1AD900EA5277 /* VoiceYakUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VoiceYakUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -98,6 +99,7 @@
 				AAEE9D6C2F7D1AD900EA5277 /* VoiceYakTests */,
 				AAEE9D762F7D1AD900EA5277 /* VoiceYakUITests */,
 				AA000011BBBB001100000011 /* sherpa-onnx.xcframework */,
+				AA000030BBBB003000000030 /* Base.xcconfig */,
 				AAEE9D5D2F7D1AD800EA5277 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -294,6 +296,7 @@
 /* Begin XCBuildConfiguration section */
 		AAEE9D7B2F7D1AD900EA5277 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AA000030BBBB003000000030 /* Base.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -359,6 +362,7 @@
 		};
 		AAEE9D7C2F7D1AD900EA5277 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AA000030BBBB003000000030 /* Base.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
