@@ -222,7 +222,7 @@ final class AppState {
                 // handle the deferred stop now that the engine is running.
                 if self.pendingStop {
                     self.pendingStop = false
-                    self.performStop()
+                    self.performStop(fromPendingStop: true)
                     return
                 }
 
@@ -280,7 +280,7 @@ final class AppState {
 
     /// Actually stops the audio engine and kicks off transcription.
     /// Must only be called when the engine is confirmed running.
-    private func performStop() {
+    private func performStop(fromPendingStop: Bool = false) {
         engineRunning = false
         let elapsed = recordingStartedAt.map { Date().timeIntervalSince($0) } ?? recordingDuration
         Log.recording.debug("performStop: elapsed=\(String(format: "%.2f", elapsed))s, recordingDuration=\(String(format: "%.2f", self.recordingDuration))s")
@@ -297,6 +297,13 @@ final class AppState {
             recordingDuration = 0
             if invalidated {
                 setTransientError("Microphone changed, dictation interrupted")
+            } else if fromPendingStop {
+                // The key was released before the input device delivered any
+                // audio (slow engine spin-up, Bluetooth mic wake). Nothing
+                // was captured, which is correct, but a silent pop reads as
+                // breakage. Say why.
+                setTransientError("Microphone was not ready, hold the key a moment longer")
+                playNoResultSound()
             } else {
                 status = .ready
                 playNoResultSound()
@@ -458,7 +465,8 @@ final class AppState {
     /// while silence and stationary noise (fan, hiss) stay flat. An
     /// absolute-level short-circuit keeps clearly audible one-word
     /// dictations exempt even when they fill the whole recording.
-    private nonisolated static func containsLikelySpeech(_ samples: [Float]) -> Bool {
+    /// Exposed (not private) for ChunkedTranscriber's residual-tail veto.
+    nonisolated static func containsLikelySpeech(_ samples: [Float]) -> Bool {
         let window = Int(Constants.sampleRate / 10) // 100 ms
         guard window > 0, samples.count >= window else { return false }
 

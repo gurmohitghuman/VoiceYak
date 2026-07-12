@@ -59,6 +59,10 @@ nonisolated enum Constants {
     static let vadMinSilenceSeconds: Float = 0.6
     /// Continuous speech is force-split after this long.
     static let vadMaxSpeechSeconds: Float = 15.0
+    /// Audio after the last VAD segment shorter than this is treated as
+    /// silence/noise and not decoded; at or above it, the residual tail is
+    /// decoded so quiet final words the VAD missed aren't dropped.
+    static let residualTailMinSeconds: Double = 0.2
 
     static var isParakeetModelDownloaded: Bool {
         parakeetModelFiles.allSatisfy { file in

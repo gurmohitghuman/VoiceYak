@@ -104,6 +104,12 @@ actor ChunkedTranscriber {
             return (text, false, failed)
         }
 
+        // Snapshot the residual tail BEFORE any await — cancel() clears
+        // `samples` and a stale read after suspension could index a
+        // different recording's buffer.
+        let tailStart = min(lastSegmentEnd, samples.count)
+        let residual = Array(samples[tailStart...])
+
         // Aggregate failure directly from the awaited task values.
         var parts: [String] = []
         var decodeFailed = false
@@ -116,7 +122,37 @@ actor ChunkedTranscriber {
             }
         }
 
+        // A session cancelled while the segment tasks were awaited must not
+        // queue a pointless tail decode ahead of the next recording's work.
+        guard session == finishedSession else { return ("", false, false) }
+
+        // Audio after the last VAD segment that never became a segment
+        // (below min speech duration, too quiet, flush quirk) used to be
+        // dropped silently. Decode it as a final part — with a veto so a
+        // trailing breath can't append hallucinated filler: a 1-2 word tail
+        // must also look like speech acoustically. Established segment text
+        // is never affected by the veto.
+        var tailText = ""
+        if Double(residual.count) >= Constants.sampleRate * Constants.residualTailMinSeconds {
+            do {
+                tailText = try await parakeet.transcribe(audioSamples: residual)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            } catch {
+                decodeFailed = true
+            }
+            if !tailText.isEmpty,
+               tailText.split(whereSeparator: \.isWhitespace).count <= 2,
+               !AppState.containsLikelySpeech(residual) {
+                Log.transcription.debug("chunked: vetoed residual tail \"\(tailText, privacy: .private)\" (no likely speech)")
+                tailText = ""
+            }
+            Log.transcription.debug("chunked: residual tail \(String(format: "%.2f", Double(residual.count) / Constants.sampleRate))s, accepted=\(!tailText.isEmpty)")
+        }
+
         guard session == finishedSession else { return ("", false, false) } // cancelled meanwhile
+        if !tailText.isEmpty {
+            parts.append(tailText)
+        }
         samples.removeAll(keepingCapacity: false)
         segmentTasks.removeAll()
         return (parts.joined(separator: " "), true, decodeFailed)
@@ -141,7 +177,14 @@ actor ChunkedTranscriber {
     private func drainClosedSegments() {
         guard let vad else { return }
         while !vad.isEmpty() {
-            let segment = vad.front()
+            // A nil front despite !isEmpty means the native queue is in a
+            // bad state; popping blind could drop a valid segment. Stop
+            // draining — the samples buffer is authoritative, so finish()
+            // recovers the audio via full decode or the residual tail.
+            guard let segment = vad.front() else {
+                Log.transcription.error("VAD front returned nil with non-empty queue, stopping drain")
+                return
+            }
             vad.pop()
 
             // Pad boundaries so weak consonants survive, but clamp against
@@ -196,10 +239,14 @@ actor ChunkedTranscriber {
             sileroVad: sileroConfig,
             sampleRate: Int32(Constants.sampleRate)
         )
-        vad = SherpaOnnxVoiceActivityDetectorWrapper(
+        guard let created = SherpaOnnxVoiceActivityDetectorWrapper(
             config: &config,
             buffer_size_in_seconds: 150
-        )
+        ) else {
+            Log.transcription.error("VAD native init failed, using legacy path")
+            return false
+        }
+        vad = created
         return true
     }
 }
