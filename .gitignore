@@ -15,3 +15,10 @@ build/
 # Prebuilt binary dependency — fetch with Scripts/fetch-sherpa-onnx.sh
 sherpa-onnx.xcframework/
 dist/
+
+# Profiling / tooling
+*.profraw
+.claude/settings.local.json
+
+# Local agent instructions (workflow and identity preferences stay off the public repo)
+CLAUDE.md
