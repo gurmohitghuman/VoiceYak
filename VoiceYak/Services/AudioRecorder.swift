@@ -54,19 +54,9 @@ final class AudioRecorder {
     nonisolated var captureWasInvalidated: Bool {
         captureState.withLock { $0.invalidated }
     }
-    /// Pending deferred engine stop (see `scheduleEngineStop`). Only touched
-    /// on engineQueue.
-    private nonisolated(unsafe) var stopWorkItem: DispatchWorkItem?
     /// Set when the engine starts; cleared by the first tap callback so we
     /// can log how long the input device took to actually deliver audio.
     private let engineStartedAtLock = Mutex<Date?>(nil)
-
-    /// How long the engine (and input device) stays hot after a recording.
-    /// Input devices — Bluetooth mics especially — can take 0.1–2s to
-    /// deliver audio after a cold start, which swallowed the first words of
-    /// quick follow-up dictations. While warm-held the tap is removed, so no
-    /// audio is captured or kept.
-    private nonisolated static let warmHoldSeconds: TimeInterval = 15
 
     /// Optional live consumer of converted 16 kHz samples (chunked
     /// transcription). Set before startRecording(); called on fanoutQueue.
@@ -90,10 +80,6 @@ final class AudioRecorder {
                     continuation.resume(returning: ())
                     return
                 }
-
-                // A recording is starting — keep the warm engine alive.
-                self.stopWorkItem?.cancel()
-                self.stopWorkItem = nil
 
                 let engine = self.preparedEngine()
                 let inputNode = engine.inputNode
@@ -180,7 +166,7 @@ final class AudioRecorder {
             // Discard path: no flush — the tail is thrown away anyway.
             activeConverter = nil
             activeTargetFormat = nil
-            scheduleEngineStop()
+            pauseEngine()
         }
 
         // Retire the generation while snapshotting, so a tap callback that
@@ -196,9 +182,9 @@ final class AudioRecorder {
 
     /// Hands the samples over once in-flight tap callbacks have drained
     /// (a buffer mid-conversion at release would otherwise be dropped,
-    /// clipping the final syllable); the engine keeps running for the
-    /// warm-hold window so an immediate follow-up dictation captures from
-    /// the first syllable.
+    /// clipping the final syllable). The engine is paused before the
+    /// result is returned, so the system mic indicator clears as soon as
+    /// the dictation ends.
     func finishRecording() async -> (samples: [Float], invalidated: Bool) {
         await withCheckedContinuation { continuation in
             engineQueue.async { [weak self] in
@@ -208,11 +194,25 @@ final class AudioRecorder {
                 }
                 self.audioEngine?.inputNode.removeTap(onBus: 0)
                 self.drainThenSnapshot { result in
+                    // Resume BEFORE pausing: pause() can block on a wedged
+                    // render callback (the drain's 100ms deadline path) and
+                    // must never delay the paste. Pause still runs after the
+                    // drain + tail flush, and engineQueue is serial, so it
+                    // completes before any later recording starts.
                     continuation.resume(returning: result)
-                    self.scheduleEngineStop()
+                    self.pauseEngine()
                 }
             }
         }
+    }
+
+    /// Pauses the engine, releasing the input hardware — this is what turns
+    /// the system mic indicator off. Unlike stop(), pause() keeps the
+    /// resources from prepare(), so the next start() skips most of the
+    /// 100–300ms graph setup; only the input device's own wake-up (notably
+    /// Bluetooth mics) remains. Must be called on engineQueue.
+    private nonisolated func pauseEngine() {
+        audioEngine?.pause()
     }
 
     /// Runs the flush + snapshot once no tap callback is executing. After
@@ -309,26 +309,6 @@ final class AudioRecorder {
         }
     }
 
-    /// Stops the engine after the warm-hold window instead of immediately.
-    /// stop() releases the mic (input indicator turns off); deferring it
-    /// keeps the input device hot between rapid dictations. Must be called
-    /// on engineQueue.
-    private nonisolated func scheduleEngineStop() {
-        stopWorkItem?.cancel()
-        // Capture the engine this stop was scheduled for: after a config
-        // change discards it, the fired item must not stop its replacement.
-        let scheduledEngine = audioEngine
-        let item = DispatchWorkItem { [weak self] in
-            guard let self, let engine = self.audioEngine, engine === scheduledEngine else { return }
-            engine.stop()
-            // Keep the engine allocated and prepared so the next recording
-            // still starts fast after the hold expires.
-            engine.prepare()
-        }
-        stopWorkItem = item
-        engineQueue.asyncAfter(deadline: .now() + Self.warmHoldSeconds, execute: item)
-    }
-
     // MARK: - Engine lifecycle
 
     /// Reuse one engine across recordings — rebuilding the graph on every
@@ -380,8 +360,6 @@ final class AudioRecorder {
     }
 
     private nonisolated func discardEngine() {
-        stopWorkItem?.cancel()
-        stopWorkItem = nil
         if let observer = configChangeObserver {
             NotificationCenter.default.removeObserver(observer)
             configChangeObserver = nil
