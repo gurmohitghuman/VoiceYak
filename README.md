@@ -28,12 +28,24 @@ All versions are on the [Releases](https://github.com/g-ghuman/VoiceYak/releases
 
 Transcription is powered by [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) (int8) running locally via [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx). It supports English and 24 other European languages, and transcribes short clips in well under a second on Apple Silicon.
 
+## Features
+
+- **Works in every app** — editors, browsers, chat, terminals: anywhere you can type
+- **Push-to-talk key of your choice** — Right/Left Option, Right Command, Right Control, Right Shift, or Fn/Globe
+- **Two voice models** — English for the best English accuracy, or Multilingual for English plus 24 other European languages; switch anytime
+- **Custom dictionary** — teach VoiceYak names, brands, and jargon; common misheard forms are matched automatically
+- **Smart text output** — auto-capitalization, trailing space, and your clipboard restored after every paste
+- **Terminal-aware formatting** — commands paste as plain text in Terminal, iTerm, Warp, Ghostty, and any app you add, with per-app rules
+- **Long dictations** — record for up to two minutes per press
+- **Menu bar native** — optional Dock icon, launch at login, completion sounds, and a dashboard with your dictation stats
+- **Private by design** — on-device transcription, no telemetry, no account; the only network request ever made is the one-time model download
+
 ## Screenshots
 
 | ![Home dashboard with live status and dictation stats](docs/screenshots/home.png) | ![General settings: hotkey, behavior, permissions](docs/screenshots/general.png) |
 |:--:|:--:|
 | ![Voice model manager with multilingual and English models](docs/screenshots/voice-model.png) | ![Output settings: text processing, per-app formatting, clipboard](docs/screenshots/output.png) |
-| ![Custom dictionary for names, brands, and jargon](docs/screenshots/dictionary.png) | ![Advanced settings: fast long dictations and live preview](docs/screenshots/advanced.png) |
+| ![Custom dictionary for names, brands, and jargon](docs/screenshots/dictionary.png) | ![Advanced settings: recording duration and model storage](docs/screenshots/advanced.png) |
 
 ## Requirements
 
@@ -67,13 +79,6 @@ If you don't want to install Xcode, follow the [Install](#install) steps at the 
 Or open `VoiceYak.xcodeproj` in Xcode, pick your own team under Signing & Capabilities (a free personal team works), and run. The project does not ship with a development team set, so Xcode asks once and remembers your choice. Building with your own team keeps the app's signature stable across rebuilds, so macOS permission grants stick; the ad-hoc command above re-signs on every build, which makes macOS ask for Microphone and Accessibility again after each rebuild.
 
 The app guides you through permissions and the model download on first launch.
-
-## Settings
-
-- **Record key** — choose which modifier key to hold (Right/Left Option, Right Command, Right Control, Right Shift, Fn/Globe)
-- **Show Dock icon** — keep VoiceYak visible in the Dock, or run it as a pure menu bar app
-- **Text output** — auto-capitalize, trailing space, clipboard restore after paste
-- **Recording** — maximum recording duration (10–120 s)
 
 ## Architecture
 
