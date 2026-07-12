@@ -5,10 +5,11 @@ struct OnboardingView: View {
 
     @State private var currentStep = 0
     @AppStorage("selectedVoiceModel") private var selectedVoiceModel = "multilingual"
+    @AppStorage("checkForUpdates") private var checkForUpdates = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let totalSteps = 4
+    private let totalSteps = 5
 
     private var permissions: PermissionsManager { appState.permissions }
     private var downloader: ModelDownloader { appState.modelDownloader }
@@ -54,6 +55,7 @@ struct OnboardingView: View {
         case 1: microphoneStep
         case 2: accessibilityStep
         case 3: modelStep
+        case 4: updatesStep
         default: welcomeStep
         }
     }
@@ -268,6 +270,53 @@ struct OnboardingView: View {
                             .multilineTextAlignment(.center)
                     }
                 }
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 48)
+    }
+
+    // MARK: - Step 5: Updates
+
+    private var updatesStep: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            StepHero(icon: "arrow.triangle.2.circlepath")
+
+            VStack(spacing: 10) {
+                Text("Stay Updated")
+                    .font(.system(.title, design: .rounded, weight: .bold))
+
+                Text("VoiceYak can check GitHub once a day for a new\nversion and let you know here. Installing is\nalways up to you.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.bottom, 24)
+
+            VStack(spacing: 8) {
+                Toggle(isOn: $checkForUpdates) {
+                    Text("Notify me about new versions")
+                        .font(.body.weight(.medium))
+                }
+                .toggleStyle(.switch)
+                .frame(width: 280)
+                .onChange(of: checkForUpdates) { _, enabled in
+                    if enabled {
+                        appState.updateChecker.startDailyChecks()
+                    } else {
+                        appState.updateChecker.stopDailyChecks()
+                    }
+                }
+
+                Text("Only the latest version number is requested.\nNothing about you or your dictations is sent.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
 
             Spacer()

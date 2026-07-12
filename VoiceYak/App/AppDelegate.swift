@@ -28,6 +28,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Preallocate audio resources so the first recording starts fast
         appState.audioRecorder.prewarm()
 
+        // Opt-in update notifications (chosen during onboarding).
+        if UserDefaults.standard.checkForUpdates {
+            appState.updateChecker.startDailyChecks()
+        }
+
         // Set up hotkey callbacks. No inner Task wrappers: HotkeyManager's
         // single-consumer event stream already delivers on the main actor
         // in strict order, and a second unstructured hop could reorder a

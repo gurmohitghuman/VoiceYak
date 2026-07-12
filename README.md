@@ -38,7 +38,8 @@ Transcription is powered by [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co
 - **Terminal-aware formatting** — commands paste as plain text in Terminal, iTerm, Warp, Ghostty, and any app you add, with per-app rules
 - **Fast long dictations** — speech is transcribed in the background at natural pauses, so even a two-minute recording pastes almost instantly
 - **Menu bar native** — optional Dock icon, launch at login, completion sounds, and a dashboard with your dictation stats
-- **Private by design** — on-device transcription, no telemetry, no account; the only network request ever made is the one-time model download
+- **Update notifications** — optional, off by default: VoiceYak can check GitHub once a day and tell you when a new version is out; installing is always up to you
+- **Private by design** — on-device transcription, no telemetry, no account; the app only talks to the network for the one-time model download and the optional update check
 
 ## Screenshots
 
@@ -99,7 +100,7 @@ VoiceYak/
 
 ## Privacy
 
-Everything runs on-device. VoiceYak makes exactly one kind of network request: downloading the speech model from GitHub on first setup. There is no telemetry, no analytics, no account.
+Everything runs on-device. VoiceYak makes two kinds of network request, both to GitHub: downloading the speech model on first setup, and, only if you opt in (it is off by default), a once-daily check of the latest release's version number so it can tell you an update exists. The update check carries no identifiers or analytics; like any web request, GitHub sees ordinary connection metadata such as your IP address. There is no telemetry, no account, and the app never downloads or installs updates itself.
 
 ## License
 

@@ -13,6 +13,8 @@ extension UserDefaults {
         static let maxRecordingDuration = "maxRecordingDuration"
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
         static let hotkeyKeyCode = "hotkeyKeyCode"
+        static let checkForUpdates = "checkForUpdates"
+        static let lastUpdateCheckAt = "lastUpdateCheckAt"
         static let totalDictations = "totalDictations"
         static let totalWords = "totalWords"
         static let selectedVoiceModel = "selectedVoiceModel"
@@ -53,6 +55,18 @@ extension UserDefaults {
     var totalWords: Int {
         get { integer(forKey: Keys.totalWords) }
         set { set(newValue, forKey: Keys.totalWords) }
+    }
+
+    // MARK: - Updates
+    /// Opt-in, chosen during onboarding; off unless the user enables it.
+    var checkForUpdates: Bool {
+        get { bool(forKey: Keys.checkForUpdates) }
+        set { set(newValue, forKey: Keys.checkForUpdates) }
+    }
+
+    var lastUpdateCheckAt: TimeInterval {
+        get { double(forKey: Keys.lastUpdateCheckAt) }
+        set { set(newValue, forKey: Keys.lastUpdateCheckAt) }
     }
 
     // MARK: - Hotkey

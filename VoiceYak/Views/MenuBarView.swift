@@ -18,6 +18,10 @@ struct MenuBarView: View {
 
             statsRow
 
+            if let update = appState.updateChecker.available {
+                updateRow(update)
+            }
+
             if showLastTranscription && !appState.lastTranscription.isEmpty {
                 LastTranscriptionCard(text: appState.lastTranscription, style: .compact)
             }
@@ -102,6 +106,32 @@ struct MenuBarView: View {
             return String(format: "%.1fk", Double(value) / 1000)
         }
         return "\(value)"
+    }
+
+    // MARK: - Update
+
+    private func updateRow(_ update: UpdateChecker.UpdateInfo) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.down.circle.fill")
+                .font(.body.weight(.medium))
+                .foregroundStyle(Theme.accent)
+
+            Text("VoiceYak \(update.version) is available")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.primary)
+
+            Spacer()
+
+            Button("View") {
+                NSWorkspace.shared.open(update.releaseURL)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            .tint(Theme.accent)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Theme.surfaceCard, in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
     }
 
     // MARK: - Footer

@@ -12,4 +12,5 @@ nonisolated enum Log {
     static let transcription = Logger(subsystem: subsystem, category: "transcription")
     static let models = Logger(subsystem: subsystem, category: "models")
     static let hotkey = Logger(subsystem: subsystem, category: "hotkey")
+    static let updates = Logger(subsystem: subsystem, category: "updates")
 }

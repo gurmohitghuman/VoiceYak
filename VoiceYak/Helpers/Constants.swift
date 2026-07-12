@@ -34,6 +34,11 @@ nonisolated enum Constants {
         "tokens.txt"
     ]
 
+    // MARK: - Updates
+    /// Anonymous read of the latest release; see UpdateChecker.
+    static let latestReleaseAPIURL = "https://api.github.com/repos/g-ghuman/VoiceYak/releases/latest"
+    static let updateCheckInterval: TimeInterval = 24 * 60 * 60
+
     // MARK: - Voice Activity Detection (chunked transcription)
     static let vadModelURL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx"
     static var vadModelPath: URL {

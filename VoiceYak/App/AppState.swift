@@ -79,6 +79,7 @@ final class AppState {
     // Services
     let audioRecorder = AudioRecorder()
     let parakeetService = ParakeetService()
+    let updateChecker = UpdateChecker()
     let textOutput = TextOutputService()
     let modelDownloader = ModelDownloader()
     let permissions = PermissionsManager.shared

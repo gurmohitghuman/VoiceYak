@@ -9,6 +9,7 @@ import SwiftUI
 
 struct GeneralSettingsPane: View {
     let appState: AppState
+    @AppStorage("checkForUpdates") private var checkForUpdates = false
     @AppStorage("hotkeyKeyCode") private var hotkeyKeyCode = Int(HotkeyKey.default.rawValue)
     @AppStorage("showDockIcon") private var showDockIcon = true
     @AppStorage("playCompletionSound") private var playCompletionSound = true
@@ -111,6 +112,47 @@ struct GeneralSettingsPane: View {
                     Text("macOS can drop previously granted access after an update. If dictation stopped working, remove VoiceYak from the Accessibility list in System Settings and add it back.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("Updates") {
+                Toggle(isOn: $checkForUpdates) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Check for updates automatically")
+                        Text("Once a day, VoiceYak asks GitHub for the latest version number. Nothing about you is sent.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .onChange(of: checkForUpdates) { _, enabled in
+                    if enabled {
+                        appState.updateChecker.startDailyChecks()
+                    } else {
+                        appState.updateChecker.stopDailyChecks()
+                    }
+                }
+
+                LabeledContent {
+                    Button(appState.updateChecker.isChecking ? "Checking…" : "Check Now") {
+                        Task { await appState.updateChecker.checkNow() }
+                    }
+                    .disabled(appState.updateChecker.isChecking)
+                } label: {
+                    if let update = appState.updateChecker.available {
+                        HStack(spacing: 8) {
+                            Text("VoiceYak \(update.version) is available")
+                            Button("View") {
+                                NSWorkspace.shared.open(update.releaseURL)
+                            }
+                            .buttonStyle(.link)
+                        }
+                    } else if appState.updateChecker.upToDateConfirmed {
+                        Text("You're up to date")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Check for a newer version")
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 

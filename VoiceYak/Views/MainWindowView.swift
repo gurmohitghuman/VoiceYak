@@ -186,6 +186,7 @@ private struct HomeDashboardView: View {
     @AppStorage("totalDictations") private var totalDictations = 0
     @AppStorage("totalWords") private var totalWords = 0
     @AppStorage("showLastTranscription") private var showLastTranscription = true
+    @AppStorage("dismissedUpdateVersion") private var dismissedUpdateVersion = ""
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var downloader: ModelDownloader { appState.modelDownloader }
@@ -199,6 +200,11 @@ private struct HomeDashboardView: View {
             VStack(alignment: .leading, spacing: 16) {
                 heroCard
 
+                if let update = appState.updateChecker.available,
+                   update.version != dismissedUpdateVersion {
+                    updateBanner(update)
+                }
+
                 HStack(spacing: 16) {
                     statCard(value: "\(totalDictations)", label: "Dictations", icon: "mic.fill")
                     statCard(value: "\(totalWords)", label: "Words spoken", icon: "text.word.spacing")
@@ -211,6 +217,44 @@ private struct HomeDashboardView: View {
             }
             .padding(24)
         }
+    }
+
+    // MARK: Update banner
+
+    private func updateBanner(_ update: UpdateChecker.UpdateInfo) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "arrow.down.circle.fill")
+                .font(.title3.weight(.medium))
+                .foregroundStyle(Theme.accent)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("VoiceYak \(update.version) is available")
+                    .font(.body.weight(.semibold))
+                Text("Download it from the releases page, then drag it into Applications.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Button("View Release") {
+                NSWorkspace.shared.open(update.releaseURL)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Theme.accent)
+
+            Button {
+                dismissedUpdateVersion = update.version
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss update notice")
+        }
+        .padding(14)
+        .background(Theme.surfaceCard, in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
     }
 
     // MARK: Hero
