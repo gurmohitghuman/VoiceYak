@@ -36,11 +36,13 @@ struct OnboardingView: View {
         }
         .frame(width: 540, height: 560)
         .animation(reduceMotion ? nil : Theme.spring, value: currentStep)
-        // Poll permission status while on the permission steps — grants
-        // happen in System Settings with no notification. .task(id:)
-        // auto-cancels on step change and on disappear.
+        // Poll permission status while on the permission steps and the
+        // final step — grants happen in System Settings with no
+        // notification, and the finish gate on the last step must react
+        // to a grant made out of order. .task(id:) auto-cancels on step
+        // change and on disappear.
         .task(id: currentStep) {
-            guard currentStep == 1 || currentStep == 2 else { return }
+            guard currentStep == 1 || currentStep == 2 || currentStep == totalSteps - 1 else { return }
             while !Task.isCancelled {
                 permissions.checkAll()
                 try? await Task.sleep(for: .seconds(1))
@@ -98,19 +100,39 @@ struct OnboardingView: View {
                 .buttonStyle(.glassProminent)
                 .controlSize(.large)
             } else {
-                Button("Start Dictating") {
-                    finishOnboarding()
+                VStack(alignment: .trailing, spacing: 6) {
+                    Button("Start Dictating") {
+                        finishOnboarding()
+                    }
+                    .buttonStyle(.glassProminent)
+                    .controlSize(.large)
+                    .disabled(!canFinish)
+
+                    if !canFinish {
+                        Text("Still needed: \(missingRequirements)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                .buttonStyle(.glassProminent)
-                .controlSize(.large)
-                .disabled(!canFinish)
             }
         }
     }
 
+    /// Everything the core flow needs: without Accessibility the hotkey
+    /// and paste are dead, so finishing without it left the app looking
+    /// ready while doing nothing.
     private var canFinish: Bool {
         permissions.microphoneGranted &&
+        permissions.accessibilityGranted &&
         Constants.isParakeetModelDownloaded
+    }
+
+    private var missingRequirements: String {
+        var missing: [String] = []
+        if !permissions.microphoneGranted { missing.append("Microphone") }
+        if !permissions.accessibilityGranted { missing.append("Accessibility") }
+        if !Constants.isParakeetModelDownloaded { missing.append("the voice model") }
+        return missing.joined(separator: ", ")
     }
 
     // MARK: - Step 1: Welcome
