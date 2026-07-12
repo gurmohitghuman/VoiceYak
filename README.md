@@ -21,7 +21,7 @@ All versions are on the [Releases](https://github.com/g-ghuman/VoiceYak/releases
 
 ## How it works
 
-1. VoiceYak lives in your menu bar (no Dock icon)
+1. VoiceYak lives in your menu bar, with a Dock icon you can turn off in Settings for a pure menu bar app
 2. In any app — Slack, your editor, a browser — **hold the push-to-talk key** (default: Right Option `⌥`)
 3. A small pill appears at the bottom of the screen while you **speak**
 4. **Release the key** — the audio is transcribed on-device and pasted at your cursor
