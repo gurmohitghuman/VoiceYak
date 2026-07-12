@@ -11,6 +11,21 @@ struct ModelManagerView: View {
         VoiceModel(rawValue: selectedVoiceModel) ?? .multilingual
     }
 
+    /// "Ready" only when THIS model is actually loaded in memory — on disk
+    /// but unloaded (still loading, a failed load, or a different model
+    /// currently loaded) must not claim ready while the hotkey would say
+    /// the model is unavailable.
+    private var modelStatus: (label: String, color: Color) {
+        if appState.parakeetService.isModelLoaded,
+           appState.parakeetService.loadedModelDirectory == selectedModel.directory {
+            return ("Ready", .green)
+        }
+        if downloader.isModelDownloaded {
+            return ("Downloaded, not loaded", .yellow)
+        }
+        return ("Not downloaded", .orange)
+    }
+
     var body: some View {
         Form {
             // Current model status
@@ -34,10 +49,10 @@ struct ModelManagerView: View {
 
                         HStack(spacing: 6) {
                             Circle()
-                                .fill(downloader.isModelDownloaded ? .green : .orange)
+                                .fill(modelStatus.color)
                                 .frame(width: 7, height: 7)
                                 .accessibilityHidden(true)
-                            Text(downloader.isModelDownloaded ? "Ready" : "Not downloaded")
+                            Text(modelStatus.label)
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }

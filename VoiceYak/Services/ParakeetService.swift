@@ -1,19 +1,24 @@
 import Foundation
+import Observation
 import Synchronization
 
 @MainActor
+@Observable
 final class ParakeetService {
-    private nonisolated(unsafe) var recognizer: SherpaOnnxOfflineRecognizer?
-    private let processingQueue = DispatchQueue(label: "com.voiceyak.parakeet", qos: .userInitiated)
+    @ObservationIgnored private nonisolated(unsafe) var recognizer: SherpaOnnxOfflineRecognizer?
+    @ObservationIgnored private let processingQueue = DispatchQueue(label: "com.voiceyak.parakeet", qos: .userInitiated)
 
     /// Main-actor mirror of the load state. `recognizer` itself is only
     /// touched on processingQueue; reading it from the main actor for this
     /// check was a data race, and the queue-hopped unload left a window
     /// where a deleted model still looked loaded.
     private(set) var isModelLoaded = false
+    /// WHICH model is loaded — status UI must not show "Ready" for a newly
+    /// selected model while the previous one is still the loaded one.
+    private(set) var loadedModelDirectory: URL?
     /// Bumped by every load/unload so a load that was interleaved with an
     /// unload can't mark the flag true after its recognizer is discarded.
-    private var loadGeneration = 0
+    @ObservationIgnored private var loadGeneration = 0
 
     /// Builds a recognizer for the model directory. Shared by the normal
     /// load path and the --verify-model canary child, so both exercise the
@@ -62,6 +67,7 @@ final class ParakeetService {
 
     func loadModel(modelDir: URL) async throws {
         isModelLoaded = false
+        loadedModelDirectory = nil
         loadGeneration += 1
         let generation = loadGeneration
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
@@ -102,6 +108,7 @@ final class ParakeetService {
         // load) during the await has already invalidated this one.
         if loadGeneration == generation {
             isModelLoaded = true
+            loadedModelDirectory = modelDir
         }
     }
 
@@ -142,6 +149,7 @@ final class ParakeetService {
         // Flip the main-actor flag immediately so startRecording can't see
         // a model that is about to disappear.
         isModelLoaded = false
+        loadedModelDirectory = nil
         loadGeneration += 1
         processingQueue.async { [weak self] in
             self?.recognizer = nil

@@ -362,7 +362,10 @@ private struct HomeDashboardView: View {
                     .font(.title3.weight(.medium))
                     .foregroundStyle(Theme.accent)
 
-                Text(downloader.isModelDownloaded ? "Ready" : "Not installed")
+                Text(appState.parakeetService.isModelLoaded
+                     && appState.parakeetService.loadedModelDirectory == VoiceModel.selected.directory
+                     ? "Ready"
+                     : (downloader.isModelDownloaded ? "Loading" : "Not installed"))
                     .font(.system(.largeTitle, design: .rounded, weight: .bold))
                     .foregroundStyle(downloader.isModelDownloaded ? .primary : Theme.accent)
 
