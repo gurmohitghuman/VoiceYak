@@ -90,6 +90,10 @@ final class AppState {
     @ObservationIgnored private var errorResetTask: Task<Void, Never>?
     /// Set to true when stopRecording() is called before the audio engine has started.
     @ObservationIgnored private var pendingStop = false
+    /// The app that was frontmost at key-down: the paste destination when
+    /// VoiceYak's own window has focus at paste time (B4), and the
+    /// formatting authority so per-app rules match where text lands (B5).
+    @ObservationIgnored private var dictationTargetApp: NSRunningApplication?
     /// Set to true when the audio engine is confirmed running.
     @ObservationIgnored private var engineRunning = false
     /// Wall-clock time when the audio engine went live (not key-press),
@@ -165,8 +169,12 @@ final class AppState {
             setTransientError("Microphone access required")
             return
         }
-        guard parakeetService.isModelLoaded else {
-            Log.recording.debug("startRecording: no model loaded")
+        // Identity-aware: right after a model switch the OLD model can
+        // still be the loaded one — recording then would transcribe with a
+        // model the user just deselected.
+        guard parakeetService.isModelLoaded,
+              parakeetService.loadedModelDirectory == VoiceModel.selected.directory else {
+            Log.recording.debug("startRecording: selected model not loaded")
             if Constants.isParakeetModelDownloaded {
                 setTransientError("Voice model is loading, try again in a moment")
             } else {
@@ -180,6 +188,10 @@ final class AppState {
         pendingStop = false
         engineRunning = false
         recordingStartedAt = nil
+        // Where the cursor lives: if VoiceYak's own window is frontmost at
+        // paste time, the paste goes back to this app instead of whatever
+        // has focus. Captured at key-down, before anything can shift focus.
+        dictationTargetApp = NSWorkspace.shared.frontmostApplication
         status = .listening
         Log.recording.debug("startRecording: status -> .listening")
 
@@ -385,7 +397,40 @@ final class AppState {
                     let ms = Int(Date().timeIntervalSince(transcriptionStart) * 1000)
                     Log.transcription.debug("transcription took \(ms)ms for \(String(format: "%.1f", Double(audioData.count) / Constants.sampleRate))s of audio: \"\(text.prefix(100), privacy: .private)\"")
                 }
-                var processed = processText(text)
+                // Resolve the paste destination ONCE — formatting and the
+                // paste must agree on the target app. Normal case: whatever
+                // is frontmost now receives the paste. If that is VoiceYak
+                // itself (our window grabbed focus mid-dictation), the
+                // paste goes back to the app that was frontmost at
+                // key-down; dictating into VoiceYak's own fields (frontmost
+                // at key-down AND now) still works.
+                let ownBundleId = Bundle.main.bundleIdentifier
+                let frontmostNow = NSWorkspace.shared.frontmostApplication
+                let remembered = dictationTargetApp
+                dictationTargetApp = nil
+                let destination: NSRunningApplication?
+                let needsReactivation: Bool
+                if let frontmostNow, frontmostNow.bundleIdentifier != ownBundleId {
+                    destination = frontmostNow
+                    needsReactivation = false
+                } else if let remembered, remembered.bundleIdentifier != ownBundleId,
+                          !remembered.isTerminated {
+                    destination = remembered
+                    needsReactivation = true
+                } else if let remembered, remembered.bundleIdentifier == ownBundleId {
+                    // Dictation deliberately started with VoiceYak's own
+                    // window focused (e.g. the dictionary field).
+                    destination = frontmostNow
+                    needsReactivation = false
+                } else {
+                    // Our window has focus and the remembered target is
+                    // gone or unknown: nowhere safe to paste. nil makes
+                    // pasteText keep the text on the clipboard instead.
+                    destination = nil
+                    needsReactivation = false
+                }
+
+                var processed = processText(text, for: destination?.bundleIdentifier)
                 // Silence hallucination guard: on speechless audio the model
                 // invents short fillers ("Yeah", "Ooh"). Only 1–2 word results
                 // are ever vetted — quiet or slow speech that produced a real
@@ -415,9 +460,25 @@ final class AppState {
                     UserDefaults.standard.totalDictations += 1
                     UserDefaults.standard.totalWords += processed
                         .split(whereSeparator: \.isWhitespace).count
-                    textOutput.pasteText(processed)
+                    let outcome = await textOutput.pasteText(
+                        processed, into: destination, activateFirst: needsReactivation
+                    )
+                    switch outcome {
+                    case .skipped:
+                        // Text is on the clipboard; the paste had nowhere
+                        // safe to go (target gone or focus unverifiable).
+                        setTransientError("Copied to clipboard, press Command V to paste")
+                    case .clipboardTaken:
+                        // Another app overwrote the clipboard mid-flight;
+                        // pasting would have injected that content instead.
+                        setTransientError(UserDefaults.standard.showLastTranscription
+                            ? "Another app changed the clipboard. Your dictation is in the menu bar"
+                            : "Another app changed the clipboard, dictation was not pasted")
+                    case .pasted, .superseded:
+                        break
+                    }
                     let totalMs = Int(Date().timeIntervalSince(stopStart) * 1000)
-                    Log.recording.debug("release -> paste: \(totalMs)ms")
+                    Log.recording.debug("release -> paste: \(totalMs)ms, outcome=\(String(describing: outcome), privacy: .public)")
                 } else {
                     Log.recording.debug("processed text was empty, nothing to paste")
                     playNoResultSound()
@@ -525,7 +586,7 @@ final class AppState {
 
     // MARK: - Text Processing
 
-    private func processText(_ text: String) -> String {
+    private func processText(_ text: String, for targetBundleId: String?) -> String {
         var result = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !result.isEmpty else { return "" }
 
@@ -533,11 +594,11 @@ final class AppState {
         // (names, brands, jargon) before formatting.
         result = TextCustomizationStore.shared.applyDictionary(to: result)
 
-        // Formatting follows the app being pasted into — a capitalized
-        // command with a trailing space is broken in a terminal.
-        let frontmostBundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
-        let formatting = TextCustomizationStore.shared.effectiveFormatting(for: frontmostBundleId)
-        Log.recording.debug("formatting for \(frontmostBundleId ?? "unknown", privacy: .private): \(String(describing: formatting.capitalization), privacy: .public), space=\(formatting.addTrailingSpace), stripPunct=\(formatting.stripTrailingPunctuation)")
+        // Formatting follows the app the paste will land in — a capitalized
+        // command with a trailing space is broken in a terminal. The caller
+        // resolves that target; reading frontmost here raced the paste.
+        let formatting = TextCustomizationStore.shared.effectiveFormatting(for: targetBundleId)
+        Log.recording.debug("formatting for \(targetBundleId ?? "unknown", privacy: .private): \(String(describing: formatting.capitalization), privacy: .public), space=\(formatting.addTrailingSpace), stripPunct=\(formatting.stripTrailingPunctuation)")
 
         if formatting.stripTrailingPunctuation,
            let last = result.last, ".!?".contains(last) {
@@ -580,10 +641,11 @@ final class AppState {
     /// construct two recognizers and invalidate each other's generation.
     @ObservationIgnored private var modelLoadTask: Task<Void, Never>?
 
-    /// Loads the selected model unless one is already loaded or loading.
+    /// Loads the selected model unless it is already loaded or loading.
     /// Joins an in-flight load instead of starting a second one.
     func loadModelIfNeeded() async {
-        if parakeetService.isModelLoaded { return }
+        if parakeetService.isModelLoaded,
+           parakeetService.loadedModelDirectory == VoiceModel.selected.directory { return }
         if let task = modelLoadTask {
             await task.value
             return
