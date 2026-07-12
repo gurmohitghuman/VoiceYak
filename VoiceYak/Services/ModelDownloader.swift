@@ -145,14 +145,27 @@ final class ModelDownloader {
             // Extract tar.bz2 archive off the main actor — tar on a
             // ~600 MB bz2 takes seconds and froze the whole UI here.
             try await Self.runExtraction(archiveURL: parked, model: model)
+
+            // The disk changed no matter what happened to this run during
+            // the extraction — bump BEFORE the staleness checks, or a
+            // cancel-during-extract leaves a fully installed model showing
+            // as "not downloaded" until relaunch.
+            installedModelsVersion += 1
+
             // Re-check AFTER the await: a cancel or replacement download
-            // during extraction must not complete a stale state.
-            try Task.checkCancellation()
-            guard downloadState?.runID == runID else { return }
+            // during extraction must not complete a stale state. But an
+            // installed model that is still the user's selection should
+            // load either way — it is on disk and correct.
+            let installedAndSelected = model.isDownloaded && model == VoiceModel.selected
+            if Task.isCancelled || downloadState?.runID != runID {
+                if installedAndSelected {
+                    onModelInstalled?(model)
+                }
+                return
+            }
 
             downloadState?.isComplete = true
             downloadState?.progress = 1.0
-            installedModelsVersion += 1
             onModelInstalled?(model)
         } catch is CancellationError {
             // cancelDownload() already cleared the UI state.
