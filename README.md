@@ -6,7 +6,7 @@ VoiceYak is a free, open-source menu bar app. Hold a key, speak, release — you
 
 ## Install
 
-1. **[Download VoiceYak 1.1.0 (DMG)](https://github.com/g-ghuman/VoiceYak/releases/latest/download/VoiceYak-1.1.0.dmg)**, open it, and drag VoiceYak into Applications.
+1. **[Download VoiceYak 1.2.0 (DMG)](https://github.com/g-ghuman/VoiceYak/releases/latest/download/VoiceYak-1.2.0.dmg)**, open it, and drag VoiceYak into Applications.
 2. Open VoiceYak. macOS blocks the first launch because the app is not notarized with Apple and says it "could not verify VoiceYak is free of malware". Click **Done** (not "Move to Trash").
 3. Open **System Settings → Privacy & Security**, scroll down to the Security section, and click **Open Anyway** next to the VoiceYak message, then confirm. This is a one-time step; macOS remembers the choice.
 4. VoiceYak guides you through Microphone and Accessibility permissions and downloads the voice model on first launch.
