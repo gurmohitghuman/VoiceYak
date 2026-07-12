@@ -362,10 +362,14 @@ private struct HomeDashboardView: View {
                     .font(.title3.weight(.medium))
                     .foregroundStyle(Theme.accent)
 
+                // "Not loaded", not "Loading": on disk without being loaded
+                // also covers a FAILED load, which "Loading" would misstate
+                // indefinitely. The normal launch load resolves to Ready in
+                // about a second either way.
                 Text(appState.parakeetService.isModelLoaded
                      && appState.parakeetService.loadedModelDirectory == VoiceModel.selected.directory
                      ? "Ready"
-                     : (downloader.isModelDownloaded ? "Loading" : "Not installed"))
+                     : (downloader.isModelDownloaded ? "Not loaded" : "Not installed"))
                     .font(.system(.largeTitle, design: .rounded, weight: .bold))
                     .foregroundStyle(downloader.isModelDownloaded ? .primary : Theme.accent)
 

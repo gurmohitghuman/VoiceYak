@@ -307,6 +307,7 @@ final class AppState {
             let invalidated = audioRecorder.captureWasInvalidated
             teardownChunkedSession()
             recordingDuration = 0
+            dictationTargetApp = nil
             if invalidated {
                 setTransientError("Microphone changed, dictation interrupted")
             } else if fromPendingStop {
@@ -490,6 +491,7 @@ final class AppState {
                 }
             } catch {
                 Log.recording.error("transcription error: \(error.localizedDescription)")
+                dictationTargetApp = nil
                 setTransientError(error.localizedDescription)
                 playNoResultSound()
             }
