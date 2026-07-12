@@ -297,39 +297,10 @@ private struct AppRuleRow: View {
 // MARK: - Advanced
 
 struct AdvancedSettingsPane: View {
-    let appState: AppState
-    @AppStorage("chunkedTranscription") private var chunkedTranscription = false
-    @AppStorage("livePreview") private var livePreview = true
     @AppStorage("maxRecordingDuration") private var maxRecordingDuration = Constants.maximumRecordingDuration
 
     var body: some View {
         Form {
-            Section("Experimental") {
-                Toggle(isOn: $chunkedTranscription) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Fast long dictations")
-                        Text("Transcribe while you speak by splitting at pauses, so long recordings paste almost instantly")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .onChange(of: chunkedTranscription) { _, enabled in
-                    if enabled {
-                        Task { await appState.modelDownloader.downloadVadModelIfNeeded() }
-                    }
-                }
-
-                Toggle(isOn: $livePreview) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Live transcription preview")
-                        Text("Show your words in the recording pill as you speak")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .disabled(!chunkedTranscription)
-            }
-
             Section("Recording") {
                 LabeledContent("Max recording duration") {
                     HStack(spacing: 12) {

@@ -10,13 +10,9 @@ final class RecordingOverlayPanel {
     private var statusTask: Task<Void, Never>?
 
     // Slightly larger than the pill itself so its glow isn't clipped.
-    // The pill grows for the live transcription preview; the panel must
-    // fit the larger of the two layouts (content stays centered).
+    // Error messages need a wider layout; show() sizes up for those.
     private var panelSize: NSSize {
-        if UserDefaults.standard.chunkedTranscription && UserDefaults.standard.livePreview {
-            return NSSize(width: 420, height: 120)
-        }
-        return NSSize(width: 220, height: 64)
+        NSSize(width: 220, height: 64)
     }
 
     init(appState: AppState) {
@@ -44,8 +40,7 @@ final class RecordingOverlayPanel {
     func show() {
         let panel = self.panel ?? makePanel()
         self.panel = panel
-        // The preview setting may have changed since the panel was built.
-        // An error message needs the wide layout regardless of settings.
+        // An error message needs the wide layout.
         var size = panelSize
         if case .error = appState.status {
             size = NSSize(width: 420, height: 120)

@@ -76,10 +76,6 @@ final class AppState {
         }
     }
 
-    // Live preview (chunked transcription)
-    var previewStable = ""
-    var previewProvisional = ""
-
     // Services
     let audioRecorder = AudioRecorder()
     let parakeetService = ParakeetService()
@@ -135,18 +131,6 @@ final class AppState {
             }
         }
 
-        Task { [weak self, chunkedTranscriber] in
-            await chunkedTranscriber.setOnPreview { preview in
-                guard let self else { return }
-                // Stale-preview gate: the main-actor hop has no ordering
-                // guarantee, so a preview from a previous recording could
-                // arrive after its session ended — or after a new one began.
-                guard self.status == .listening,
-                      preview.session == self.activeChunkSession else { return }
-                self.previewStable = preview.stable
-                self.previewProvisional = preview.provisional
-            }
-        }
     }
 
     /// Soft feedback when dictation ends without pasting anything —
@@ -195,8 +179,6 @@ final class AppState {
         pendingStop = false
         engineRunning = false
         recordingStartedAt = nil
-        previewStable = ""
-        previewProvisional = ""
         status = .listening
         Log.recording.debug("startRecording: status -> .listening")
 
@@ -207,9 +189,7 @@ final class AppState {
                 // full-buffer path when the setting is off or VAD is missing.
                 // The session token travels with every chunk so stale
                 // in-flight audio can never leak into a later recording.
-                let chunkSession = await self.chunkedTranscriber.begin(
-                    previewEnabled: UserDefaults.standard.livePreview
-                )
+                let chunkSession = await self.chunkedTranscriber.begin()
                 self.chunkModeActive = chunkSession != nil
                 self.activeChunkSession = chunkSession
                 if let chunkSession {
@@ -355,8 +335,6 @@ final class AppState {
                             Task { await chunkedTranscriber.cancel(session: session) }
                         }
                     }
-                    previewStable = ""
-                    previewProvisional = ""
                     setTransientError("Microphone changed, dictation interrupted")
                     playNoResultSound()
                     return
@@ -386,8 +364,6 @@ final class AppState {
                     // of a misleading "nothing heard" pop. Partial success
                     // (some segments decoded) still pastes what it has.
                     if result.decodeFailed && text.isEmpty {
-                        previewStable = ""
-                        previewProvisional = ""
                         setTransientError("Transcription failed")
                         playNoResultSound()
                         return
@@ -401,8 +377,6 @@ final class AppState {
                     let ms = Int(Date().timeIntervalSince(transcriptionStart) * 1000)
                     Log.transcription.debug("transcription took \(ms)ms for \(String(format: "%.1f", Double(audioData.count) / Constants.sampleRate))s of audio: \"\(text.prefix(100), privacy: .private)\"")
                 }
-                previewStable = ""
-                previewProvisional = ""
                 var processed = processText(text)
                 // Silence hallucination guard: on speechless audio the model
                 // invents short fillers ("Yeah", "Ooh"). Only 1–2 word results
@@ -447,8 +421,6 @@ final class AppState {
                 }
             } catch {
                 Log.recording.error("transcription error: \(error.localizedDescription)")
-                previewStable = ""
-                previewProvisional = ""
                 setTransientError(error.localizedDescription)
                 playNoResultSound()
             }
@@ -461,7 +433,7 @@ final class AppState {
     // one. Re-introduce it together with an actual cancel feature — see
     // docs/audit-fix-plan.md §19 for the required design.
 
-    /// Discards any in-flight chunked session and its preview state.
+    /// Discards any in-flight chunked session.
     private func teardownChunkedSession() {
         guard chunkModeActive else { return }
         chunkModeActive = false
@@ -470,8 +442,6 @@ final class AppState {
         chunkStreamContinuation = nil
         chunkConsumerTask?.cancel()
         chunkConsumerTask = nil
-        previewStable = ""
-        previewProvisional = ""
         // Session-scoped: this async cancel can land AFTER a rapid
         // re-press has begun a new session; the token makes it a no-op
         // there instead of silently killing the new dictation.
@@ -679,9 +649,7 @@ final class AppState {
             Log.models.debug("model warmup took \(Int(Date().timeIntervalSince(warmupStart) * 1000))ms")
 
             // Chunked transcription needs the small VAD model too.
-            if UserDefaults.standard.chunkedTranscription {
-                await modelDownloader.downloadVadModelIfNeeded()
-            }
+            await modelDownloader.downloadVadModelIfNeeded()
         } catch {
             setTransientError("Failed to load model")
         }

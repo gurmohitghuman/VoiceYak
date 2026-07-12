@@ -1,29 +1,17 @@
 import Foundation
 import os
 
-/// Incremental transcription for long dictations (experimental).
+/// Incremental transcription for long dictations.
 ///
 /// While the user is recording, Silero VAD watches the audio stream and
 /// closes a segment at each natural pause; closed segments are decoded by
 /// Parakeet in the background immediately. On release only the trailing
 /// speech remains to decode, so paste latency stays roughly constant no
-/// matter how long the recording is. The same machinery feeds the live
-/// preview: completed segments are stable text, and the open tail is
-/// re-decoded periodically as provisional text.
+/// matter how long the recording is.
 ///
-/// All decodes (segments, previews, final tail) funnel through
-/// ParakeetService's serial queue, so at most one preview job can ever
-/// delay the final decode.
+/// All decodes (segments and the final tail) funnel through
+/// ParakeetService's serial queue.
 actor ChunkedTranscriber {
-
-    struct PreviewText: Sendable {
-        /// Session that produced this preview — the receiver drops stale
-        /// previews from a previous recording (the main-actor hop has no
-        /// other ordering guarantee).
-        let session: Int
-        let stable: String
-        let provisional: String
-    }
 
     private let parakeet: ParakeetService
 
@@ -32,46 +20,29 @@ actor ChunkedTranscriber {
     // Per-recording state
     private var session = 0
     private var active = false
-    private var previewEnabled = false
     private var samples: [Float] = []
     private var totalSegments = 0
     private var lastSegmentEnd = 0
     private var segmentTasks: [Int: Task<(text: String, failed: Bool), Never>] = [:]
-    private var completedTexts: [Int: String] = [:]
-    private var provisionalText = ""
-    private var previewInFlight = false
-    private var previewTask: Task<Void, Never>?
-    private var lastPreviewAt = Date.distantPast
-
-    private var onPreview: (@MainActor @Sendable (PreviewText) -> Void)?
 
     init(parakeet: ParakeetService) {
         self.parakeet = parakeet
     }
 
-    func setOnPreview(_ callback: @escaping @MainActor @Sendable (PreviewText) -> Void) {
-        onPreview = callback
-    }
-
     // MARK: - Recording lifecycle
 
     /// Starts a chunked session. Returns the session token to pass with
-    /// every append, or nil when chunked mode can't run (setting off, VAD
-    /// model missing) — the caller then uses the legacy full-buffer path.
-    func begin(previewEnabled: Bool) -> Int? {
-        guard UserDefaults.standard.chunkedTranscription, ensureVad() else { return nil }
+    /// every append, or nil when chunked mode can't run (VAD model
+    /// missing) — the caller then uses the legacy full-buffer path.
+    func begin() -> Int? {
+        guard ensureVad() else { return nil }
 
         session += 1
         active = true
-        self.previewEnabled = previewEnabled
         samples.removeAll(keepingCapacity: true)
         totalSegments = 0
         lastSegmentEnd = 0
         segmentTasks.removeAll()
-        completedTexts.removeAll()
-        provisionalText = ""
-        previewInFlight = false
-        lastPreviewAt = .distantPast
         vad?.reset()
         return session
     }
@@ -84,7 +55,6 @@ actor ChunkedTranscriber {
         samples.append(contentsOf: chunk)
         vad.acceptWaveform(samples: chunk)
         drainClosedSegments()
-        maybeKickPreview()
     }
 
     /// Flushes the VAD, decodes what remains, and returns the full ordered
@@ -134,9 +104,7 @@ actor ChunkedTranscriber {
             return (text, false, failed)
         }
 
-        // Aggregate failure directly from the awaited task values — going
-        // through actor state via segmentCompleted would race this loop.
-        // Previews never contribute: they're cosmetic.
+        // Aggregate failure directly from the awaited task values.
         var parts: [String] = []
         var decodeFailed = false
         for index in 0..<totalSegments {
@@ -166,10 +134,6 @@ actor ChunkedTranscriber {
             task.cancel()
         }
         segmentTasks.removeAll()
-        previewTask?.cancel()
-        previewTask = nil
-        completedTexts.removeAll()
-        provisionalText = ""
     }
 
     // MARK: - Segments
@@ -197,7 +161,6 @@ actor ChunkedTranscriber {
             lastSegmentEnd = max(lastSegmentEnd, hi)
 
             let audio = Array(samples[lo..<hi])
-            let currentSession = session
             let parakeet = self.parakeet
 
             let task = Task<(text: String, failed: Bool), Never> {
@@ -209,80 +172,6 @@ actor ChunkedTranscriber {
                 }
             }
             segmentTasks[index] = task
-
-            Task { [weak self] in
-                let result = await task.value
-                await self?.segmentCompleted(index: index, text: result.text, session: currentSession)
-            }
-        }
-    }
-
-    private func segmentCompleted(index: Int, text: String, session completedSession: Int) {
-        guard completedSession == session else { return }
-        completedTexts[index] = text
-        publishPreview()
-    }
-
-    // MARK: - Live preview
-
-    private func maybeKickPreview() {
-        guard previewEnabled, active, !previewInFlight else { return }
-        guard Date().timeIntervalSince(lastPreviewAt) >= Constants.previewInterval else { return }
-
-        let tailStart = min(lastSegmentEnd, samples.count)
-        let tailLength = samples.count - tailStart
-        // Don't bother decoding less than half a second of tail.
-        guard Double(tailLength) >= Constants.sampleRate / 2 else { return }
-
-        let windowSamples = Int(Constants.previewWindowSeconds * Constants.sampleRate)
-        let windowStart = max(tailStart, samples.count - windowSamples)
-        let window = Array(samples[windowStart...])
-
-        previewInFlight = true
-        lastPreviewAt = Date()
-        let currentSession = session
-        let parakeet = self.parakeet
-
-        previewTask = Task { [weak self] in
-            let text = (try? await parakeet.transcribe(audioSamples: window)) ?? ""
-            await self?.previewCompleted(
-                text: text.trimmingCharacters(in: .whitespacesAndNewlines),
-                session: currentSession
-            )
-        }
-    }
-
-    private func previewCompleted(text: String, session completedSession: Int) {
-        // Session check BEFORE clearing previewInFlight: a stale completion
-        // un-flagging a newer session's in-flight preview let overlapping
-        // preview decodes pile onto the serial Parakeet queue.
-        guard completedSession == session else { return }
-        previewInFlight = false
-        guard active else { return }
-        provisionalText = text
-        publishPreview()
-    }
-
-    private func publishPreview() {
-        guard previewEnabled, active, let onPreview else { return }
-
-        // Stable text: the contiguous prefix of completed segments, so text
-        // never appears out of order.
-        var stableParts: [String] = []
-        for index in 0..<totalSegments {
-            guard let text = completedTexts[index] else { break }
-            if !text.isEmpty {
-                stableParts.append(text)
-            }
-        }
-
-        let preview = PreviewText(
-            session: session,
-            stable: stableParts.joined(separator: " "),
-            provisional: provisionalText
-        )
-        Task { @MainActor in
-            onPreview(preview)
         }
     }
 

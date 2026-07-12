@@ -8,77 +8,40 @@ struct RecordingOverlayView: View {
     @State private var spinnerRotation: Angle = .zero
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// Live preview text shows while listening once chunked transcription
-    /// has produced something.
-    private var hasPreview: Bool {
-        appState.status == .listening &&
-        (!appState.previewStable.isEmpty || !appState.previewProvisional.isEmpty)
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                if case .error(let message) = appState.status {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.orange)
-                    Text(message)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.9))
-                        .lineLimit(2)
-                        .frame(maxWidth: 340)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else if appState.status == .transcribing {
-                    spinner
-                    Text("Transcribing")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.85))
-                } else {
-                    equalizer
-                    Text(appState.recordingDuration.dictationDurationLabel)
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.85))
-                        .contentTransition(.numericText())
-                }
-            }
-
-            if hasPreview {
-                previewText
+        HStack(spacing: 10) {
+            if case .error(let message) = appState.status {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.orange)
+                Text(message)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .lineLimit(2)
+                    .frame(maxWidth: 340)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if appState.status == .transcribing {
+                spinner
+                Text("Transcribing")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.85))
+            } else {
+                equalizer
+                Text(appState.recordingDuration.dictationDurationLabel)
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .contentTransition(.numericText())
             }
         }
-        .padding(.horizontal, hasPreview ? 16 : 14)
-        .padding(.vertical, hasPreview ? 12 : 9)
-        .frame(width: hasPreview ? 380 : nil)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
         // Regular (adaptive) Liquid Glass, not clear: the pill floats over
         // arbitrary desktop content and must stay legible everywhere. The
         // pill keeps its dark identity in both system appearances.
-        .glassEffect(.regular, in: .rect(cornerRadius: hasPreview ? 18 : 32, style: .continuous))
+        .glassEffect(.regular, in: .rect(cornerRadius: 32, style: .continuous))
         .environment(\.colorScheme, .dark)
         .shadow(color: .black.opacity(0.28), radius: 12, y: 5)
-        .animation(reduceMotion ? nil : Theme.spring, value: hasPreview)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    /// Stable text renders solid; the provisional tail renders dimmer and
-    /// italic so it visibly may still refine.
-    private var previewText: some View {
-        Text("\(stableTextSegment)\(provisionalTextSegment)")
-            .font(.system(size: 12, weight: .medium, design: .rounded))
-            .lineLimit(2)
-            .truncationMode(.head)
-            .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var stableTextSegment: Text {
-        let separator = appState.previewStable.isEmpty || appState.previewProvisional.isEmpty ? "" : " "
-        return Text(appState.previewStable + separator)
-            .foregroundStyle(.white.opacity(0.9))
-    }
-
-    private var provisionalTextSegment: Text {
-        Text(appState.previewProvisional)
-            .italic()
-            .foregroundStyle(.white.opacity(0.5))
     }
 
     // MARK: - Components

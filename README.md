@@ -6,7 +6,7 @@ VoiceYak is a free, open-source menu bar app. Hold a key, speak, release — you
 
 ## Install
 
-1. **[Download VoiceYak 1.0.1 (DMG)](https://github.com/g-ghuman/VoiceYak/releases/latest/download/VoiceYak-1.0.1.dmg)**, open it, and drag VoiceYak into Applications.
+1. **[Download VoiceYak 1.1.0 (DMG)](https://github.com/g-ghuman/VoiceYak/releases/latest/download/VoiceYak-1.1.0.dmg)**, open it, and drag VoiceYak into Applications.
 2. Open VoiceYak. macOS blocks the first launch because the app is not notarized with Apple and says it "could not verify VoiceYak is free of malware". Click **Done** (not "Move to Trash").
 3. Open **System Settings → Privacy & Security**, scroll down to the Security section, and click **Open Anyway** next to the VoiceYak message, then confirm. This is a one-time step; macOS remembers the choice.
 4. VoiceYak guides you through Microphone and Accessibility permissions and downloads the voice model on first launch.
@@ -36,7 +36,7 @@ Transcription is powered by [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co
 - **Custom dictionary** — teach VoiceYak names, brands, and jargon; common misheard forms are matched automatically
 - **Smart text output** — auto-capitalization, trailing space, and your clipboard restored after every paste
 - **Terminal-aware formatting** — commands paste as plain text in Terminal, iTerm, Warp, Ghostty, and any app you add, with per-app rules
-- **Long dictations** — record for up to two minutes per press
+- **Fast long dictations** — speech is transcribed in the background at natural pauses, so even a two-minute recording pastes almost instantly
 - **Menu bar native** — optional Dock icon, launch at login, completion sounds, and a dashboard with your dictation stats
 - **Private by design** — on-device transcription, no telemetry, no account; the only network request ever made is the one-time model download
 

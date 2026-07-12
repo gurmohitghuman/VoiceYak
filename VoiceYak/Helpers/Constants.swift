@@ -54,10 +54,6 @@ nonisolated enum Constants {
     static let vadMinSilenceSeconds: Float = 0.6
     /// Continuous speech is force-split after this long.
     static let vadMaxSpeechSeconds: Float = 15.0
-    /// Preview cadence: re-decode the open tail at most this often.
-    static let previewInterval: TimeInterval = 1.2
-    /// Preview decodes look at no more than this much trailing audio.
-    static let previewWindowSeconds: Double = 10.0
 
     static var isParakeetModelDownloaded: Bool {
         parakeetModelFiles.allSatisfy { file in

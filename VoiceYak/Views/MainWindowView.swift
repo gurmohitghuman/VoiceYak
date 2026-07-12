@@ -122,7 +122,7 @@ struct MainWindowView: View {
             DictionaryPane()
                 .scrollContentBackground(.hidden)
         case .advanced:
-            AdvancedSettingsPane(appState: appState)
+            AdvancedSettingsPane()
                 .scrollContentBackground(.hidden)
         case .credits:
             CreditsView()

@@ -13,8 +13,6 @@ extension UserDefaults {
         static let maxRecordingDuration = "maxRecordingDuration"
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
         static let hotkeyKeyCode = "hotkeyKeyCode"
-        static let chunkedTranscription = "chunkedTranscription"
-        static let livePreview = "livePreview"
         static let totalDictations = "totalDictations"
         static let totalWords = "totalWords"
         static let selectedVoiceModel = "selectedVoiceModel"
@@ -34,7 +32,6 @@ extension UserDefaults {
             Keys.autoCapitalize: true,
             Keys.addTrailingSpace: true,
             Keys.restoreClipboard: true,
-            Keys.livePreview: true,
             Keys.maxRecordingDuration: Constants.maximumRecordingDuration,
             Keys.selectedVoiceModel: "multilingual",
         ])
@@ -56,19 +53,6 @@ extension UserDefaults {
     var totalWords: Int {
         get { integer(forKey: Keys.totalWords) }
         set { set(newValue, forKey: Keys.totalWords) }
-    }
-
-    // MARK: - Chunked Transcription (experimental)
-    /// nonisolated: read from the transcription actor.
-    nonisolated var chunkedTranscription: Bool {
-        get { bool(forKey: Keys.chunkedTranscription) }
-        set { set(newValue, forKey: Keys.chunkedTranscription) }
-    }
-
-    /// nonisolated: read from the transcription actor.
-    nonisolated var livePreview: Bool {
-        get { bool(forKey: Keys.livePreview) }
-        set { set(newValue, forKey: Keys.livePreview) }
     }
 
     // MARK: - Hotkey
