@@ -92,7 +92,13 @@ struct GeneralSettingsPane: View {
                     isGranted: permissions.microphoneGranted,
                     action: {
                         if !permissions.microphoneGranted {
-                            permissions.openMicrophoneSettings()
+                            // Request, don't just open Settings: an app in
+                            // the undetermined state (fresh install, TCC
+                            // reset) is not listed in the Microphone pane
+                            // at all, so Settings alone is a dead end. The
+                            // request shows the system prompt when
+                            // undetermined and opens Settings when denied.
+                            Task { await permissions.requestMicrophone() }
                         }
                     }
                 )
