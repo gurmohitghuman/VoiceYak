@@ -29,6 +29,7 @@ Local.xcconfig
 
 # Local agent instructions (workflow and identity preferences stay off the public repo)
 CLAUDE.md
+AGENTS.md
 
 # Internal working documents (audits, plans, bug reports) never ship publicly;
 # screenshots stay tracked
