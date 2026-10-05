@@ -6,7 +6,7 @@ VoiceYak is a free, open-source menu bar app. Hold a key, speak, release — you
 
 ## Install
 
-1. **[Download VoiceYak 1.2.0 (DMG)](https://github.com/g-ghuman/VoiceYak/releases/latest/download/VoiceYak-1.2.0.dmg)**, open it, and drag VoiceYak into Applications.
+1. **[Download VoiceYak 1.2.0 (DMG)](https://github.com/gurmohitghuman/VoiceYak/releases/latest/download/VoiceYak-1.2.0.dmg)**, open it, and drag VoiceYak into Applications.
 2. Open VoiceYak. macOS blocks the first launch because the app is not notarized with Apple and says it "could not verify VoiceYak is free of malware". Click **Done** (not "Move to Trash").
 3. Open **System Settings → Privacy & Security**, scroll down to the Security section, and click **Open Anyway** next to the VoiceYak message, then confirm. This is a one-time step; macOS remembers the choice.
 4. VoiceYak guides you through Microphone and Accessibility permissions and downloads the voice model on first launch.
@@ -17,7 +17,7 @@ If you prefer the Terminal, this clears the quarantine flag in place of steps 2 
 xattr -d com.apple.quarantine /Applications/VoiceYak.app
 ```
 
-All versions are on the [Releases](https://github.com/g-ghuman/VoiceYak/releases) page. You can also [build from source](#building-from-source), which avoids the unnotarized-app step entirely.
+All versions are on the [Releases](https://github.com/gurmohitghuman/VoiceYak/releases) page. You can also [build from source](#building-from-source), which avoids the unnotarized-app step entirely.
 
 ## How it works
 
@@ -67,7 +67,7 @@ If you skip this and only have the Command Line Tools, `xcodebuild` fails with "
 Then build:
 
 ```sh
-git clone https://github.com/g-ghuman/VoiceYak.git
+git clone https://github.com/gurmohitghuman/VoiceYak.git
 cd VoiceYak
 ./Scripts/fetch-sherpa-onnx.sh   # downloads the prebuilt sherpa-onnx static library
 xcodebuild -project VoiceYak.xcodeproj -scheme VoiceYak -configuration Release build CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=-

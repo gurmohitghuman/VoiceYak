@@ -36,7 +36,7 @@ nonisolated enum Constants {
 
     // MARK: - Updates
     /// Anonymous read of the latest release; see UpdateChecker.
-    static let latestReleaseAPIURL = "https://api.github.com/repos/g-ghuman/VoiceYak/releases/latest"
+    static let latestReleaseAPIURL = "https://api.github.com/repos/gurmohitghuman/VoiceYak/releases/latest"
     static let updateCheckInterval: TimeInterval = 24 * 60 * 60
 
     // MARK: - Voice Activity Detection (chunked transcription)
